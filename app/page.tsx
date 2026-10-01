@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import {
   BarChart3, Bell, ChevronDown, Clapperboard, FileVideo, FolderOpen,
   Home, Library, Play, Plus, Settings, Sparkles, Upload, WandSparkles,
@@ -57,15 +58,15 @@ function Dashboard() {
   return <div className="dashboard">
     <section className="hero">
       <div><span className="pill"><Sparkles size={13}/> AI creator workspace</span><h2>Make more.<br/><span>Post faster.</span></h2><p>Turn raw footage into ready-to-post content with CreatorHub.</p>
-      <div className="heroButtons"><button className="primary"><Upload size={17}/> Upload video</button><button className="secondary"><WandSparkles size={17}/> Try AI Edit</button></div></div>
+      <div className="heroButtons"><Link href="/editor" className="primary"><Upload size={17}/> Upload video</Link><Link href="/ai" className="secondary"><WandSparkles size={17}/> Try AI Edit</Link></div></div>
       <div className="heroGraphic"><div className="glow"></div><div className="preview"><div className="previewTop"><span>PREVIEW</span><span>00:24</span></div><div className="play"><Play size={22} fill="currentColor"/></div><div className="timeline"><i></i><i></i><i></i><i></i><i></i></div></div></div>
     </section>
 
     <div className="sectionHead"><div><h3>Quick actions</h3><p>Start with a tool and keep creating.</p></div></div>
     <section className="quick">
-      <Action icon={<Upload/>} title="Upload video" text="Bring in raw footage" />
-      <Action icon={<WandSparkles/>} title="Auto Cut" text="Find the best moments" />
-      <Action icon={<Sparkles/>} title="Simple AI Edit" text="Captions, cuts & zooms" />
+      <Link href="/editor" className="actionLink"><Action icon={<Upload/>} title="Upload video" text="Bring in raw footage" /></Link>
+      <Link href="/editor" className="actionLink"><Action icon={<WandSparkles/>} title="Auto Cut" text="Find the best moments" /></Link>
+      <Link href="/ai" className="actionLink"><Action icon={<Sparkles/>} title="Simple AI Edit" text="Captions, cuts & zooms" /></Link>
       <Action icon={<Plus/>} title="New project" text="Start from scratch" dashed />
     </section>
 
