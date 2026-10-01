@@ -1,85 +1,136 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { ArrowLeft, Captions, Crop, Download, Film, Play, Scissors, Sparkles, Upload, WandSparkles, Volume2, ZoomIn } from "lucide-react";
+import { ArrowLeft, Captions, Crop, Download, Film, Play, Pause, Scissors, Sparkles, Upload, WandSparkles, Volume2, ZoomIn, Save, RotateCcw } from "lucide-react";
 
 export default function EditorPage() {
   const inputRef = useRef<HTMLInputElement>(null);
+  const videoRef = useRef<HTMLVideoElement>(null);
   const [videoUrl, setVideoUrl] = useState("");
   const [fileName, setFileName] = useState("");
   const [playing, setPlaying] = useState(false);
-  const [tool, setTool] = useState("Select");
+  const [tool, setTool] = useState("Cut");
+  const [duration, setDuration] = useState(0);
+  const [current, setCurrent] = useState(0);
+  const [start, setStart] = useState(0);
+  const [end, setEnd] = useState(0);
+  const [message, setMessage] = useState("");
+
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem("creatorhub-editor");
+      if (saved) {
+        const data = JSON.parse(saved);
+        if (data.fileName) setFileName(data.fileName);
+      }
+    } catch {}
+  }, []);
 
   function handleFile(file?: File) {
-    if (!file) return;
-    if (!file.type.startsWith("video/")) return;
+    if (!file || !file.type.startsWith("video/")) return;
+    if (videoUrl) URL.revokeObjectURL(videoUrl);
+    const url = URL.createObjectURL(file);
     setFileName(file.name);
-    setVideoUrl(URL.createObjectURL(file));
+    setVideoUrl(url);
+    setCurrent(0);
+    setStart(0);
+    setEnd(0);
     setPlaying(false);
+    setMessage("Video loaded");
   }
 
-  return (
-    <main className="editorPage">
-      <header className="editorTop">
-        <Link href="/" className="back"><ArrowLeft size={17}/> Dashboard</Link>
-        <div className="editorTitle"><Film size={17}/><b>{fileName || "Untitled project"}</b><span>Draft</span></div>
-        <div className="editorActions"><button className="secondary"><Download size={16}/> Export</button></div>
-      </header>
+  function onLoaded() {
+    const d = videoRef.current?.duration || 0;
+    setDuration(d);
+    setEnd(d);
+  }
 
-      <section className="editorLayout">
-        <aside className="toolRail">
-          {[
-            [Scissors, "Cut"], [Captions, "Captions"], [Crop, "Crop"], [ZoomIn, "Zoom"], [Volume2, "Audio"], [Sparkles, "AI Edit"]
-          ].map(([Icon, label]) => (
-            <button key={label as string} className={tool === label ? "tool active" : "tool"} onClick={() => setTool(label as string)}>
-              <Icon size={19}/><span>{label as string}</span>
-            </button>
-          ))}
-        </aside>
+  function togglePlay() {
+    const v = videoRef.current;
+    if (!v) return;
+    if (v.paused) v.play(); else v.pause();
+  }
 
-        <section className="editorCenter">
-          <div className="videoStage">
-            {videoUrl ? (
-              <video src={videoUrl} controls={false} className="videoPlayer" onPlay={() => setPlaying(true)} onPause={() => setPlaying(false)} />
-            ) : (
-              <button className="emptyVideo" onClick={() => inputRef.current?.click()}>
-                <div className="uploadIcon"><Upload size={25}/></div>
-                <b>Drop your video here</b>
-                <span>MP4, MOV, WebM and more</span>
-                <strong>Choose video</strong>
-              </button>
-            )}
-            {videoUrl && !playing && <button className="stagePlay" onClick={(e) => { const video = e.currentTarget.previousElementSibling as HTMLVideoElement | null; video?.play(); }}><Play size={22} fill="currentColor"/></button>}
-          </div>
+  function seek(value: number) {
+    const v = videoRef.current;
+    if (!v) return;
+    v.currentTime = Math.max(0, Math.min(value, duration));
+    setCurrent(v.currentTime);
+  }
 
-          <div className="timelinePanel">
-            <div className="timelineHeader"><span>Timeline</span><span>{tool} tool</span></div>
-            <div className="ruler"><i>00:00</i><i>00:05</i><i>00:10</i><i>00:15</i><i>00:20</i><i>00:25</i></div>
-            <div className="track"><div className="clip"><span>{fileName || "Add a video clip"}</span><b></b><b></b><b></b><b></b></div></div>
-            <div className="audioTrack"><span>Audio</span></div>
-          </div>
-        </section>
+  function setTrimPoint(which: "start" | "end") {
+    if (which === "start") setStart(current);
+    else setEnd(current);
+    setMessage(which === "start" ? "Start point set" : "End point set");
+  }
 
-        <aside className="inspector">
-          <div className="inspectorHead"><b>{tool}</b><span>Inspector</span></div>
-          {tool === "AI Edit" ? (
-            <div className="inspectorBody">
-              <div className="aiMini"><WandSparkles size={19}/><b>CreatorHub AI</b></div>
-              <p>Let CreatorHub suggest cuts, captions, zooms, and a stronger opening.</p>
-              <button className="primary" onClick={() => setTool("Cut")}><Sparkles size={16}/> Analyze video</button>
-            </div>
-          ) : (
-            <div className="inspectorBody">
-              <p>Select a clip on the timeline to edit it with the {tool.toLowerCase()} tool.</p>
-              <div className="setting"><span>Auto apply</span><button className="toggle"></button></div>
-              <div className="setting"><span>Non-destructive</span><b>ON</b></div>
-            </div>
-          )}
-        </aside>
+  function autoCut() {
+    if (!duration) { setMessage("Upload a video first"); return; }
+    const trim = Math.min(2, duration * .08);
+    setStart(trim);
+    setEnd(Math.max(trim, duration - trim));
+    seek(trim);
+    setMessage("Auto Cut found a tighter opening and ending");
+  }
+
+  function saveDraft() {
+    localStorage.setItem("creatorhub-editor", JSON.stringify({
+      fileName, start, end, duration, savedAt: new Date().toISOString()
+    }));
+    setMessage("Draft saved locally");
+  }
+
+  function resetTrim() {
+    setStart(0); setEnd(duration); seek(0); setMessage("Trim reset");
+  }
+
+  function formatTime(value:number) {
+    const m=Math.floor(value/60);
+    const s=Math.floor(value%60).toString().padStart(2,"0");
+    return `${m}:${s}`;
+  }
+
+  return <main className="editorPage">
+    <header className="editorTop">
+      <Link href="/" className="back"><ArrowLeft size={17}/> Dashboard</Link>
+      <div className="editorTitle"><Film size={17}/><b>{fileName || "Untitled project"}</b><span>{message || "Draft"}</span></div>
+      <div className="editorActions"><button className="secondary" onClick={saveDraft}><Save size={16}/> Save</button><button className="primary" onClick={()=>setMessage("Export is ready for the next processing layer")}><Download size={16}/> Export</button></div>
+    </header>
+
+    <section className="editorLayout">
+      <aside className="toolRail">
+        {[[Scissors,"Cut"],[Captions,"Captions"],[Crop,"Crop"],[ZoomIn,"Zoom"],[Volume2,"Audio"],[Sparkles,"AI Edit"]].map(([Icon,label]) =>
+          <button key={label as string} className={tool===label ? "tool active":"tool"} onClick={()=>setTool(label as string)}>
+            <Icon size={19}/><span>{label as string}</span>
+          </button>
+        )}
+      </aside>
+
+      <section className="editorCenter">
+        <div className="videoStage">
+          {videoUrl ? <video ref={videoRef} src={videoUrl} className="videoPlayer" onLoadedMetadata={onLoaded} onTimeUpdate={()=>setCurrent(videoRef.current?.currentTime||0)} onPlay={()=>setPlaying(true)} onPause={()=>setPlaying(false)} /> :
+          <button className="emptyVideo" onClick={()=>inputRef.current?.click()}><div className="uploadIcon"><Upload size={25}/></div><b>Drop your video here</b><span>MP4, MOV, WebM and more</span><strong>Choose video</strong></button>}
+          {videoUrl && <button className="stagePlay" onClick={togglePlay}>{playing ? <Pause size={22} fill="currentColor"/> : <Play size={22} fill="currentColor"/>}</button>}
+        </div>
+
+        <div className="timelinePanel">
+          <div className="timelineHeader"><span>Timeline</span><span>{formatTime(current)} / {formatTime(duration)}</span></div>
+          <input className="scrubber" type="range" min="0" max={duration||1} step=".01" value={Math.min(current,duration||1)} onChange={e=>seek(Number(e.target.value))}/>
+          <div className="ruler"><i>00:00</i><i>{formatTime(duration*.2)}</i><i>{formatTime(duration*.4)}</i><i>{formatTime(duration*.6)}</i><i>{formatTime(duration*.8)}</i><i>{formatTime(duration)}</i></div>
+          <div className="track"><div className="clip" style={{width: duration ? `${Math.max(8,(end-start)/duration*100)}%`:"72%"}}><span>{fileName || "Add a video clip"}</span><b></b><b></b><b></b><b></b></div></div>
+          <div className="trimControls"><button onClick={()=>setTrimPoint("start")}><Scissors size={13}/> Set start</button><button onClick={()=>setTrimPoint("end")}><Scissors size={13}/> Set end</button><button onClick={resetTrim}><RotateCcw size={13}/> Reset</button></div>
+          <div className="audioTrack"><span>Audio · original</span></div>
+        </div>
       </section>
 
-      <input ref={inputRef} type="file" accept="video/*" hidden onChange={(e) => handleFile(e.target.files?.[0])}/>
-    </main>
-  );
+      <aside className="inspector">
+        <div className="inspectorHead"><b>{tool}</b><span>Inspector</span></div>
+        {tool==="AI Edit" ? <div className="inspectorBody"><div className="aiMini"><WandSparkles size={19}/><b>CreatorHub AI</b></div><p>Analyze the clip and apply simple edit decisions without an external AI key.</p><button className="primary full" onClick={autoCut}><Sparkles size={16}/> Auto Cut</button></div> :
+        tool==="Cut" ? <div className="inspectorBody"><p>Trim the clip by setting start and end points on the timeline.</p><div className="setting"><span>Start</span><b>{formatTime(start)}</b></div><div className="setting"><span>End</span><b>{formatTime(end)}</b></div><button className="secondary full" onClick={autoCut}><Sparkles size={15}/> Smart trim</button></div> :
+        <div className="inspectorBody"><p>{tool} controls are ready for the next processing layer.</p><div className="setting"><span>Auto apply</span><button className="toggle"></button></div><div className="setting"><span>Non-destructive</span><b>ON</b></div></div>}
+      </aside>
+    </section>
+    <input ref={inputRef} type="file" accept="video/*" hidden onChange={e=>handleFile(e.target.files?.[0])}/>
+  </main>;
 }
