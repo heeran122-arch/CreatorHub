@@ -16,6 +16,7 @@ export default function EditorPage() {
   const [start, setStart] = useState(0);
   const [end, setEnd] = useState(0);
   const [message, setMessage] = useState("");
+  const [caption, setCaption] = useState("");
 
   useEffect(() => {
     try {
@@ -85,6 +86,23 @@ export default function EditorPage() {
     setStart(0); setEnd(duration); seek(0); setMessage("Trim reset");
   }
 
+async function exportVideo() {
+    const v=videoRef.current;
+    if (!v || !videoUrl) { setMessage("Upload a video first"); return; }
+    const capture=(v as HTMLVideoElement & {captureStream?:()=>MediaStream}).captureStream;
+    if (!capture) { setMessage("Export is not supported in this browser"); return; }
+    const old=v.currentTime;
+    v.pause(); v.currentTime=start;
+    const stream=capture.call(v);
+    const mime=MediaRecorder.isTypeSupported("video/webm;codecs=vp9,opus")?"video/webm;codecs=vp9,opus":"video/webm";
+    const recorder=new MediaRecorder(stream,{mimeType:mime});
+    const chunks:Blob[]=[];
+    recorder.ondataavailable=e=>{if(e.data.size)chunks.push(e.data)};
+    recorder.onstop=()=>{const blob=new Blob(chunks,{type:"video/webm"});const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download=(fileName.replace(/\.[^.]+$/,"")||"creatorhub-export")+".webm";a.click();setMessage("Export complete");v.currentTime=old};
+    recorder.start(); await v.play();
+    const timer=window.setInterval(()=>{if(v.currentTime>=end){v.pause();recorder.stop();window.clearInterval(timer)}},100);
+  }
+
   function formatTime(value:number) {
     const m=Math.floor(value/60);
     const s=Math.floor(value%60).toString().padStart(2,"0");
@@ -95,7 +113,7 @@ export default function EditorPage() {
     <header className="editorTop">
       <Link href="/" className="back"><ArrowLeft size={17}/> Dashboard</Link>
       <div className="editorTitle"><Film size={17}/><b>{fileName || "Untitled project"}</b><span>{message || "Draft"}</span></div>
-      <div className="editorActions"><button className="secondary" onClick={saveDraft}><Save size={16}/> Save</button><button className="primary" onClick={()=>setMessage("Export is ready for the next processing layer")}><Download size={16}/> Export</button></div>
+      <div className="editorActions"><button className="secondary" onClick={saveDraft}><Save size={16}/> Save</button><button className="primary" onClick={exportVideo}><Download size={16}/> Export</button></div>
     </header>
 
     <section className="editorLayout">
@@ -128,7 +146,7 @@ export default function EditorPage() {
         <div className="inspectorHead"><b>{tool}</b><span>Inspector</span></div>
         {tool==="AI Edit" ? <div className="inspectorBody"><div className="aiMini"><WandSparkles size={19}/><b>CreatorHub AI</b></div><p>Analyze the clip and apply simple edit decisions without an external AI key.</p><button className="primary full" onClick={autoCut}><Sparkles size={16}/> Auto Cut</button></div> :
         tool==="Cut" ? <div className="inspectorBody"><p>Trim the clip by setting start and end points on the timeline.</p><div className="setting"><span>Start</span><b>{formatTime(start)}</b></div><div className="setting"><span>End</span><b>{formatTime(end)}</b></div><button className="secondary full" onClick={autoCut}><Sparkles size={15}/> Smart trim</button></div> :
-        <div className="inspectorBody"><p>{tool} controls are ready for the next processing layer.</p><div className="setting"><span>Auto apply</span><button className="toggle"></button></div><div className="setting"><span>Non-destructive</span><b>ON</b></div></div>}
+        <div className="inspectorBody"><p>{tool} controls are ready for this project.</p><div className="setting"><span>Auto apply</span><button className="toggle"></button></div><div className="setting"><span>Non-destructive</span><b>ON</b></div></div>}
       </aside>
     </section>
     <input ref={inputRef} type="file" accept="video/*" hidden onChange={e=>handleFile(e.target.files?.[0])}/>
