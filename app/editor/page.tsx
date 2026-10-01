@@ -17,6 +17,8 @@ export default function EditorPage() {
   const [end, setEnd] = useState(0);
   const [message, setMessage] = useState("");
   const [caption, setCaption] = useState("");
+  const [zoom, setZoom] = useState(1);
+  const [muted, setMuted] = useState(false);
 
   useEffect(() => {
     try {
@@ -93,9 +95,9 @@ async function exportVideo() {
     if (!capture) { setMessage("Export is not supported in this browser"); return; }
     const old=v.currentTime;
     v.pause(); v.currentTime=start;
-    const stream=capture.call(v);
+    const sourceStream=capture.call(v);
     const mime=MediaRecorder.isTypeSupported("video/webm;codecs=vp9,opus")?"video/webm;codecs=vp9,opus":"video/webm";
-    const recorder=new MediaRecorder(stream,{mimeType:mime});
+    const canvas=document.createElement("canvas"); canvas.width=1280; canvas.height=720; const ctx=canvas.getContext("2d");\n    const draw=()=>{if(!ctx)return;ctx.fillStyle="#000";ctx.fillRect(0,0,canvas.width,canvas.height);const scale=Math.max(1,zoom);const w=canvas.width*scale,h=canvas.height*scale;ctx.drawImage(v,(canvas.width-w)/2,(canvas.height-h)/2,w,h);if(caption){ctx.fillStyle="rgba(0,0,0,.7)";ctx.fillRect(100,610,1080,62);ctx.fillStyle="#fff";ctx.font="bold 34px system-ui";ctx.textAlign="center";ctx.fillText(caption,640,650)} requestAnimationFrame(draw)}; draw();\n    const out=canvas.captureStream(30); sourceStream.getAudioTracks().forEach(t=>out.addTrack(t)); const recorder=new MediaRecorder(out,{mimeType});
     const chunks:Blob[]=[];
     recorder.ondataavailable=e=>{if(e.data.size)chunks.push(e.data)};
     recorder.onstop=()=>{const blob=new Blob(chunks,{type:"video/webm"});const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download=(fileName.replace(/\.[^.]+$/,"")||"creatorhub-export")+".webm";a.click();setMessage("Export complete");v.currentTime=old};
@@ -127,9 +129,9 @@ async function exportVideo() {
 
       <section className="editorCenter">
         <div className="videoStage">
-          {videoUrl ? <video ref={videoRef} src={videoUrl} className="videoPlayer" onLoadedMetadata={onLoaded} onTimeUpdate={()=>setCurrent(videoRef.current?.currentTime||0)} onPlay={()=>setPlaying(true)} onPause={()=>setPlaying(false)} /> :
+          {videoUrl ? <video ref={videoRef} src={videoUrl} className="videoPlayer" style={{transform:`scale(${zoom})`}} onLoadedMetadata={onLoaded} onTimeUpdate={()=>setCurrent(videoRef.current?.currentTime||0)} onPlay={()=>setPlaying(true)} onPause={()=>setPlaying(false)} /> :
           <button className="emptyVideo" onClick={()=>inputRef.current?.click()}><div className="uploadIcon"><Upload size={25}/></div><b>Drop your video here</b><span>MP4, MOV, WebM and more</span><strong>Choose video</strong></button>}
-          {videoUrl && <button className="stagePlay" onClick={togglePlay}>{playing ? <Pause size={22} fill="currentColor"/> : <Play size={22} fill="currentColor"/>}</button>}
+          {videoUrl && caption && <div className="captionOverlay">{caption}</div>}{videoUrl && <button className="stagePlay" onClick={togglePlay}>{playing ? <Pause size={22} fill="currentColor"/> : <Play size={22} fill="currentColor"/>}</button>}
         </div>
 
         <div className="timelinePanel">
@@ -145,7 +147,7 @@ async function exportVideo() {
       <aside className="inspector">
         <div className="inspectorHead"><b>{tool}</b><span>Inspector</span></div>
         {tool==="AI Edit" ? <div className="inspectorBody"><div className="aiMini"><WandSparkles size={19}/><b>CreatorHub AI</b></div><p>Analyze the clip and apply simple edit decisions without an external AI key.</p><button className="primary full" onClick={autoCut}><Sparkles size={16}/> Auto Cut</button></div> :
-        tool==="Cut" ? <div className="inspectorBody"><p>Trim the clip by setting start and end points on the timeline.</p><div className="setting"><span>Start</span><b>{formatTime(start)}</b></div><div className="setting"><span>End</span><b>{formatTime(end)}</b></div><button className="secondary full" onClick={autoCut}><Sparkles size={15}/> Smart trim</button></div> :
+        tool==="Captions" ? <div className="inspectorBody"><p>Add a caption overlay.</p><textarea className="captionInput" value={caption} onChange={e=>setCaption(e.target.value)} placeholder="Type your caption..."/></div> :\ntool==="Zoom" ? <div className="inspectorBody"><p>Adjust the preview zoom.</p><input className="scrubber" type="range" min="1" max="1.5" step=".05" value={zoom} onChange={e=>setZoom(Number(e.target.value))}/><div className="setting"><span>Zoom</span><b>{zoom.toFixed(2)}x</b></div></div> :\ntool==="Audio" ? <div className="inspectorBody"><p>Control the original audio track.</p><button className="secondary full" onClick={()=>{setMuted(!muted);if(videoRef.current)videoRef.current.muted=!muted}}>{muted?"Unmute":"Mute"} original audio</button></div> :\ntool==="Crop" ? <div className="inspectorBody"><p>Crop preview is centered and keeps the source aspect ratio.</p><div className="setting"><span>Mode</span><b>Center</b></div></div> :\ntool==="Cut" ? <div className="inspectorBody"><p>Trim the clip by setting start and end points on the timeline.</p><div className="setting"><span>Start</span><b>{formatTime(start)}</b></div><div className="setting"><span>End</span><b>{formatTime(end)}</b></div><button className="secondary full" onClick={autoCut}><Sparkles size={15}/> Smart trim</button></div> :
         <div className="inspectorBody"><p>{tool} controls are ready for this project.</p><div className="setting"><span>Auto apply</span><button className="toggle"></button></div><div className="setting"><span>Non-destructive</span><b>ON</b></div></div>}
       </aside>
     </section>
