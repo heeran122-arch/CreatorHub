@@ -23,17 +23,14 @@ export default function HomePage() {
         <div className="brand"><div className="brandMark"><Sparkles size={18}/></div><span>CreatorHub</span></div>
         <div className="workspace"><div className="avatar">H</div><div><b>Heeran</b><small>Personal workspace</small></div><ChevronDown size={15}/></div>
         <nav>
-          {[
-            [Home, "Dashboard"], [Clapperboard, "Editor"], [Library, "Projects"], [BarChart3, "Analytics"]
-          ].map(([Icon, label]) => (
-            <button key={label as string} className={active === label ? "nav active" : "nav"} onClick={() => setActive(label as string)}>
-              <Icon size={18}/><span>{label as string}</span>
-            </button>
-          ))}
+          <Link href="/" className={active === "Dashboard" ? "nav active" : "nav"}><Home size={18}/><span>Dashboard</span></Link>
+          <Link href="/editor" className="nav"><Clapperboard size={18}/><span>Editor</span></Link>
+          <Link href="/projects" className="nav"><Library size={18}/><span>Projects</span></Link>
+          <button className="nav" onClick={() => setActive("Analytics")}><BarChart3 size={18}/><span>Analytics</span></button>
         </nav>
         <div className="navLabel">WORKSPACE</div>
         <nav>
-          <button className="nav"><FileVideo size={18}/><span>Drafts</span><em>3</em></button>
+          <Link href="/drafts" className="nav"><FileVideo size={18}/><span>Drafts</span><em>3</em></Link>
           <button className="nav"><Youtube size={18}/><span>Channels</span></button>
         </nav>
         <div className="sideBottom">
@@ -70,7 +67,7 @@ function Dashboard() {
       <Action icon={<Plus/>} title="New project" text="Start from scratch" dashed />
     </section>
 
-    <div className="sectionHead projectsHead"><div><h3>Recent projects</h3><p>Your latest edits and drafts.</p></div><button className="view">View all <ChevronDown size={15}/></button></div>
+    <div className="sectionHead projectsHead"><div><h3>Recent projects</h3><p>Your latest edits and drafts.</p></div><Link href="/projects" className="view">View all <ChevronDown size={15}/></Link></div>
     <section className="projects">
       {projects.map((p) => <article className="project" key={p.title}><div className="thumb"><div className="thumbPlay"><Play size={15} fill="currentColor"/></div><span>{p.progress === 100 ? "READY" : "DRAFT"}</span></div><div className="projectInfo"><div><h4>{p.title}</h4><small>{p.type} · {p.time}</small></div><MoreHorizontal size={18}/><div className="progress"><span style={{width:p.progress+"%"}}></span></div></div></article>)}
     </section>
